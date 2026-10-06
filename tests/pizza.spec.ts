@@ -69,7 +69,7 @@ for (const failure of [false, true]) {
     await page.getByPlaceholder('Email address').fill('robin@example.com');
     await page.getByPlaceholder('Password').fill('pizza-password');
     await page.getByRole('button', { name: 'Register', exact: true }).click();
-    expect(api.calls.find(c => c.method === 'POST')?.body).toEqual({ name: 'Robin', email: 'robin@example.com', password: 'pizza-password' });
+    await expect.poll(() => api.calls.find(c => c.method === 'POST')?.body).toEqual({ name: 'Robin', email: 'robin@example.com', password: 'pizza-password' });
     if (failure) {
       await expect(page.getByText(/Email already registered/)).toBeVisible();
       await page.getByText('Login', { exact: true }).last().click();
