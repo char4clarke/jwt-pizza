@@ -1,6 +1,8 @@
 import { test, expect } from 'playwright-test-coverage';
+import { mockUserApi } from './mockUserApi';
 
 test('admin can view and filter users', async ({ page }) => {
+  await mockUserApi(page);
   await page.goto('/');
 
   await page.getByRole('link', { name: 'Login' }).click();
@@ -41,6 +43,8 @@ test('admin can view and filter users', async ({ page }) => {
 test('admin can delete a user', async ({ page }) => {
   const email = `delete${Date.now()}@jwt.com`;
   const name = `Delete Test ${Date.now()}`;
+
+  await mockUserApi(page);
 
   // Register a diner
   await page.goto('/');

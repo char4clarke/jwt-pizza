@@ -1,7 +1,10 @@
 import { test, expect } from "playwright-test-coverage";
+import { mockUserApi } from "./mockUserApi";
 
 test("updateUser persists after logout", async ({ page }) => {
   const email = `user${Date.now()}@jwt.com`;
+
+  await mockUserApi(page);
 
   // 1. Register a new user
   await page.goto("/");
@@ -58,6 +61,8 @@ test("updateUser changes email and password", async ({ page }) => {
   const newEmail = `updated${Date.now()}@jwt.com`;
   const oldPassword = "diner";
   const newPassword = "newDiner123";
+
+  await mockUserApi(page);
 
   await page.goto("/");
   await page.getByRole("link", { name: "Register" }).click();
