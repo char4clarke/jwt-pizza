@@ -45,6 +45,22 @@ export async function initialize(page: Page, options: { user?: User; loginError?
     else if (path === '/api/user/me' && method === 'GET') {
       status = options.expired ? 401 : 200;
       json = options.expired ? { message: 'Session expired' } : state.user;
+    } else if (path === '/api/user' && method === 'GET') {
+      const filter = (url.searchParams.get('name') || '*')
+        .replaceAll('*', '')
+        .toLowerCase();
+
+      const pageNumber = Number(url.searchParams.get('page') || 1);
+      const limit = Number(url.searchParams.get('limit') || 10);
+
+      const users = [state.user].filter(user =>
+        user.name?.toLowerCase().includes(filter)
+      );
+
+      json = {
+        users: users.slice((pageNumber - 1) * limit, pageNumber * limit),
+        more: users.length > pageNumber * limit,
+      };
     } else if (path === '/api/order/menu' && method === 'GET') json = menu;
     else if (path === '/api/order' && method === 'GET') json = { id: 'history', dinerId: 'u1', orders: state.orders };
     else if (path === '/api/order' && method === 'POST') {

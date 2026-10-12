@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import NotFound from './notFound';
 import Button from '../components/button';
 import { pizzaService } from '../service/service';
-import { Franchise, FranchiseList, Role, Store, User } from '../service/pizzaService';
+import { Franchise, FranchiseList, Role, Store, User, UserList } from '../service/pizzaService';
 import { TrashIcon } from '../icons';
 
 interface Props {
@@ -17,11 +17,46 @@ export default function AdminDashboard(props: Props) {
   const [franchisePage, setFranchisePage] = React.useState(0);
   const filterFranchiseRef = React.useRef<HTMLInputElement>(null);
 
+  const [userList, setUserList] = React.useState<UserList>({
+    users: [],
+    more: false,
+  });
+
+  const [userPage, setUserPage] = React.useState(1);
+  const [userFilter, setUserFilter] = React.useState('*');
+  const filterUserRef = React.useRef<HTMLInputElement>(null);
+
   React.useEffect(() => {
     (async () => {
       setFranchiseList(await pizzaService.getFranchises(franchisePage, 3, '*'));
     })();
   }, [props.user, franchisePage]);
+
+  React.useEffect(() => {
+    if (!Role.isRole(props.user, Role.Admin)) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const result = await pizzaService.getUsers(
+          userPage,
+          10,
+          userFilter
+        );
+
+        if (!cancelled) {
+          setUserList(result);
+        }
+      } catch (error) {
+        console.error('Failed to load users:', error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [props.user, userPage, userFilter]);
 
   function createFranchise() {
     navigate('/admin-dashboard/create-franchise');
@@ -37,6 +72,43 @@ export default function AdminDashboard(props: Props) {
 
   async function filterFranchises() {
     setFranchiseList(await pizzaService.getFranchises(franchisePage, 10, `*${filterFranchiseRef.current?.value}*`));
+  }
+
+  function filterUsers() {
+    const name = filterUserRef.current?.value.trim() || '';
+
+    setUserPage(1);
+    setUserFilter(name ? `*${name}*` : '*');
+  }
+
+  async function deleteUser(user: User) {
+    if (!user.id) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${user.name}?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await pizzaService.deleteUser(user.id);
+
+      // Reload the current page after deletion.
+      const updatedList = await pizzaService.getUsers(
+        userPage,
+        10,
+        userFilter
+      );
+
+      if (updatedList.users.length === 0 && userPage > 1) {
+        setUserPage(userPage - 1);
+      } else {
+        setUserList(updatedList);
+      }
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      alert('Unable to delete user.');
+    }
   }
 
   let response = <NotFound />;
@@ -122,6 +194,116 @@ export default function AdminDashboard(props: Props) {
         </div>
         <div>
           <Button className="w-36 text-xs sm:text-sm sm:w-64" title="Add Franchise" onPress={createFranchise} />
+        </div>
+        <div className="text-start py-8 px-4 sm:px-6 lg:px-8">
+          <h3 className="text-neutral-100 text-xl">Users</h3>
+
+          <div className="bg-neutral-100 rounded-lg overflow-hidden my-4 p-4">
+
+            {/* Filter users */}
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                ref={filterUserRef}
+                placeholder="Filter users"
+                aria-label="Filter users"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
+              />
+
+              <button
+                type="button"
+                onClick={filterUsers}
+                className="px-4 py-2 text-sm font-semibold rounded-lg border border-orange-400 text-orange-600 hover:bg-orange-100"
+              >
+                Search
+              </button>
+            </div>
+
+            {/* Users table */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+
+                <thead className="uppercase text-white bg-slate-400">
+                  <tr>
+                    {['Name', 'Email', 'Roles', 'Action'].map((header) => (
+                      <th
+                        key={header}
+                        scope="col"
+                        className="px-4 py-3 text-left text-xs font-medium"
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-gray-200">
+                  {userList.users.map((listedUser) => (
+                    <tr key={listedUser.id} className="hover:bg-gray-100">
+
+                      <td className="px-4 py-3 text-sm text-gray-800">
+                        {listedUser.name}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-800">
+                        {listedUser.email}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-800">
+                        {listedUser.roles
+                          ?.map((r) => r.role)
+                          .join(', ')}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-800">
+                        <button
+                          type="button"
+                          onClick={() => deleteUser(listedUser)}
+                          className="px-3 py-1 text-sm font-semibold rounded-lg border border-red-500 text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </td>
+
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {userList.users.length === 0 && (
+              <p className="text-center text-gray-500 py-4">
+                No users found.
+              </p>
+            )}
+
+            {/* Pagination */}
+            <div className="flex justify-end items-center gap-3 mt-4">
+
+              <button
+                type="button"
+                disabled={userPage <= 1}
+                onClick={() => setUserPage(userPage - 1)}
+                className="px-3 py-1 border rounded disabled:opacity-40"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm text-gray-700">
+                Page {userPage}
+              </span>
+
+              <button
+                type="button"
+                disabled={!userList.more}
+                onClick={() => setUserPage(userPage + 1)}
+                className="px-3 py-1 border rounded disabled:opacity-40"
+              >
+                Next
+              </button>
+
+            </div>
+          </div>
         </div>
       </View>
     );
